@@ -37,6 +37,9 @@ export default function HomeScreen({ navigation }: Props) {
   const [mood, setMood] = useState<store.MoodEntry[]>([]);
   const [stress, setStress] = useState<store.StressEntry[]>([]);
   const [sleep, setSleep] = useState<store.SleepEntry[]>([]);
+  const [waterToday, setWaterToday] = useState(0);
+  const [waterGoal, setWaterGoal] = useState(store.DEFAULT_WATER_GOAL);
+  const [mealsToday, setMealsToday] = useState(0);
 
   useFocusEffect(
     useCallback(() => {
@@ -44,6 +47,9 @@ export default function HomeScreen({ navigation }: Props) {
       store.getMoods(user.id).then(setMood);
       store.getStress(user.id).then(setStress);
       store.getSleep(user.id).then(setSleep);
+      store.getWaterToday(user.id).then(setWaterToday);
+      store.getWaterGoal(user.id).then(setWaterGoal);
+      store.getMeals(user.id, store.todayKey()).then((m) => setMealsToday(m.length));
     }, [user]),
   );
 
@@ -149,7 +155,70 @@ export default function HomeScreen({ navigation }: Props) {
         />
       </FadeIn>
 
-      <FadeIn delay={390}>
+      <FadeIn delay={380}>
+        <Text style={[font.h2, { marginTop: spacing.lg }]}>Alimentação</Text>
+      </FadeIn>
+      <FadeIn delay={420}>
+        <PillarCard
+          icon="coffee"
+          color={colors.primary}
+          bg={colors.primaryTint}
+          title="Registrar refeições"
+          desc={
+            mealsToday > 0
+              ? `${mealsToday} ${mealsToday === 1 ? 'refeição registrada' : 'refeições registradas'} hoje.`
+              : 'Acompanhe seus hábitos alimentares do dia.'
+          }
+          onPress={() => navigation.navigate('Refeicoes')}
+        />
+      </FadeIn>
+      <FadeIn delay={460}>
+        <PillarCard
+          icon="droplet"
+          color={colors.indigo}
+          bg={colors.indigoSoft}
+          title="Hidratação"
+          desc={`${waterToday} ml de ${waterGoal} ml da meta de hoje.`}
+          done={waterToday >= waterGoal && waterToday > 0}
+          onPress={() => navigation.navigate('Agua')}
+        />
+      </FadeIn>
+      <FadeIn delay={500}>
+        <PillarCard
+          icon="book-open"
+          color={colors.honey}
+          bg={colors.honeySoft}
+          title="Dicas nutricionais"
+          desc="Conteúdos sobre alimentação para a rotina acadêmica."
+          onPress={() => navigation.navigate('Nutricao')}
+        />
+      </FadeIn>
+
+      <FadeIn delay={540}>
+        <Text style={[font.h2, { marginTop: spacing.lg }]}>Mente & bem-estar</Text>
+      </FadeIn>
+      <FadeIn delay={580}>
+        <PillarCard
+          icon="wind"
+          color={colors.clay}
+          bg={colors.claySoft}
+          title="Mindfulness"
+          desc="Exercícios guiados de respiração e meditação."
+          onPress={() => navigation.navigate('Mindfulness')}
+        />
+      </FadeIn>
+      <FadeIn delay={620}>
+        <PillarCard
+          icon="star"
+          color={colors.indigo}
+          bg={colors.indigoSoft}
+          title="VitaU+ · Apoio psicológico"
+          desc="Converse e agende sessões com psicólogos parceiros."
+          onPress={() => navigation.navigate('Chat')}
+        />
+      </FadeIn>
+
+      <FadeIn delay={670}>
         <View style={styles.quote}>
           <Feather name="sun" size={16} color={colors.honey} />
           <Text style={styles.quoteText}>

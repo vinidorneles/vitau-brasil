@@ -7,12 +7,18 @@ import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { useAuth } from './auth';
 import { AppTabParams, AuthStackParams } from './navTypes';
 import AdminScreen from './screens/AdminScreen';
+import ChatScreen from './screens/ChatScreen';
 import HomeScreen from './screens/HomeScreen';
 import LoginScreen from './screens/LoginScreen';
+import MealsScreen from './screens/MealsScreen';
+import MindfulnessScreen from './screens/MindfulnessScreen';
 import MoodScreen from './screens/MoodScreen';
+import NutritionScreen from './screens/NutritionScreen';
 import RegisterScreen from './screens/RegisterScreen';
+import SleepAlertsScreen from './screens/SleepAlertsScreen';
 import SleepScreen from './screens/SleepScreen';
 import StressScreen from './screens/StressScreen';
+import WaterScreen from './screens/WaterScreen';
 import { colors, font, fonts } from './theme';
 
 export const navTheme: Theme = {
@@ -49,6 +55,12 @@ function AppNavigator() {
       <Tab.Screen name="Humor" component={MoodScreen} />
       <Tab.Screen name="Estresse" component={StressScreen} />
       <Tab.Screen name="Sono" component={SleepScreen} />
+      <Tab.Screen name="AlertasSono" component={SleepAlertsScreen} />
+      <Tab.Screen name="Refeicoes" component={MealsScreen} />
+      <Tab.Screen name="Agua" component={WaterScreen} />
+      <Tab.Screen name="Mindfulness" component={MindfulnessScreen} />
+      <Tab.Screen name="Nutricao" component={NutritionScreen} />
+      <Tab.Screen name="Chat" component={ChatScreen} />
     </Tab.Navigator>
   );
 }

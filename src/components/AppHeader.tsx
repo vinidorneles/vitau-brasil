@@ -16,7 +16,11 @@ const NAV: { key: keyof AppTabParams; label: string; icon: IconName }[] = [
   { key: 'Sono', label: 'Sono', icon: 'moon' },
 ];
 
-export function AppHeader() {
+/**
+ * Cabeçalho fixo. Telas secundárias (fora das 4 abas principais) passam
+ * `back` para exibir um botão de volta ao Início no lugar das abas.
+ */
+export function AppHeader({ back, title }: { back?: boolean; title?: string } = {}) {
   const navigation = useNavigation<any>();
   const route = useRoute();
   const { signOut } = useAuth();
@@ -25,14 +29,25 @@ export function AppHeader() {
     <View style={styles.header}>
       <View style={styles.topRow}>
         <View style={styles.brand}>
-          <LinearGradient
-            colors={gradients.brand}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.mark}>
-            <Feather name="activity" size={15} color={colors.white} />
-          </LinearGradient>
-          <Text style={styles.brandText}>VitaU</Text>
+          {back ? (
+            <Pressable
+              onPress={() => navigation.navigate('Inicio')}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Voltar ao início"
+              style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.6 }]}>
+              <Feather name="chevron-left" size={20} color={colors.primary} />
+            </Pressable>
+          ) : (
+            <LinearGradient
+              colors={gradients.brand}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.mark}>
+              <Feather name="activity" size={15} color={colors.white} />
+            </LinearGradient>
+          )}
+          <Text style={styles.brandText}>{back ? title ?? 'VitaU' : 'VitaU'}</Text>
         </View>
         <Pressable
           onPress={signOut}
@@ -45,6 +60,7 @@ export function AppHeader() {
         </Pressable>
       </View>
 
+      {back ? null : (
       <View style={styles.nav}>
         {NAV.map((item) => {
           const active = route.name === item.key;
@@ -69,6 +85,7 @@ export function AppHeader() {
           );
         })}
       </View>
+      )}
     </View>
   );
 }
@@ -96,6 +113,14 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  backBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primarySoft,
   },
   brandText: {
     fontFamily: fonts.serifBlack,

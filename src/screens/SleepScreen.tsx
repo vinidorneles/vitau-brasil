@@ -1,6 +1,6 @@
 /** VitaU — registro de sono (US08) com qualidade percebida opcional. */
 import { Feather } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import React, { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useAuth } from '../auth';
@@ -48,10 +48,12 @@ function classifySleep(min: number): { label: string; color: string } {
 
 export default function SleepScreen() {
   const { user } = useAuth();
+  const navigation = useNavigation<any>();
   const [list, setList] = useState<store.SleepEntry[]>([]);
   const [bedtime, setBedtime] = useState('');
   const [wake, setWake] = useState('');
   const [quality, setQuality] = useState<number | null>(null);
+  const [note, setNote] = useState('');
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
 
@@ -64,6 +66,7 @@ export default function SleepScreen() {
         setBedtime(today.bedtime);
         setWake(today.wake);
         setQuality(today.quality);
+        setNote(today.note ?? '');
       }
     });
   }, [user]);
@@ -81,7 +84,7 @@ export default function SleepScreen() {
       return;
     }
     if (!user) return;
-    await store.saveSleep(user.id, bedtime, wake, dur, quality);
+    await store.saveSleep(user.id, bedtime, wake, dur, quality, note);
     setSaved(true);
     load();
     setTimeout(() => setSaved(false), 2500);
@@ -152,6 +155,16 @@ export default function SleepScreen() {
             })}
           </View>
 
+          <Text style={styles.qualityLabel}>Observação da noite (opcional)</Text>
+          <TextInput
+            value={note}
+            onChangeText={setNote}
+            placeholder="Ex.: acordei algumas vezes, sonhei muito…"
+            placeholderTextColor={colors.inkFaint}
+            multiline
+            style={styles.noteInput}
+          />
+
           {error ? (
             <View style={styles.errorRow}>
               <Feather name="alert-circle" size={14} color={colors.danger} />
@@ -173,6 +186,26 @@ export default function SleepScreen() {
             </View>
           ) : null}
         </Card>
+      </FadeIn>
+
+      <FadeIn delay={150}>
+        <Pressable
+          onPress={() => navigation.navigate('AlertasSono')}
+          accessibilityRole="button"
+          style={({ pressed }) => [pressed && { transform: [{ scale: 0.985 }] }]}>
+          <Card style={styles.alertCard}>
+            <View style={styles.alertIcon}>
+              <Feather name="bell" size={18} color={colors.indigo} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={font.h3}>Alertas de rotina de sono</Text>
+              <Text style={[font.small, { marginTop: 2 }]}>
+                Configure lembretes para manter um horário regular.
+              </Text>
+            </View>
+            <Feather name="chevron-right" size={20} color={colors.inkFaint} />
+          </Card>
+        </Pressable>
       </FadeIn>
 
       <FadeIn delay={180}>
@@ -206,6 +239,11 @@ export default function SleepScreen() {
                       {store.shortDate(s.date)} · {s.bedtime}–{s.wake}
                       {s.quality ? ` · ${QUALITY[s.quality - 1]}` : ''}
                     </Text>
+                    {s.note ? (
+                      <Text style={styles.histNote} numberOfLines={2}>
+                        “{s.note}”
+                      </Text>
+                    ) : null}
                   </View>
                   <Pill text={k.label} color={k.color} />
                 </View>
@@ -302,6 +340,30 @@ const styles = StyleSheet.create({
   },
   qualitySelected: { backgroundColor: colors.indigo, borderColor: colors.indigo },
   qualityText: { fontFamily: fonts.sansSemi, fontSize: 10.5, color: colors.inkSoft },
+  noteInput: {
+    minHeight: 64,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    backgroundColor: colors.surfaceAlt,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
+    fontFamily: fonts.sans,
+    fontSize: 14.5,
+    color: colors.ink,
+    textAlignVertical: 'top',
+  },
+  histNote: { ...font.small, fontFamily: fonts.serifItalic, marginTop: 3, color: colors.inkSoft },
+  alertCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.lg },
+  alertIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.md,
+    backgroundColor: colors.indigoSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   errorRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing.lg },
   errorText: { ...font.small, color: colors.danger, flex: 1 },
   savedRow: {

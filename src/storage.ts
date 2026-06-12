@@ -36,7 +36,48 @@ export type SleepEntry = {
   bedtime: string; // HH:MM
   wake: string; // HH:MM
   durationMin: number;
-  quality: number | null; // 1..5 opcional
+  quality: number | null; // 1..5 opcional (US09)
+  note?: string; // observação textual opcional (US09)
+  createdAt: string;
+};
+
+// ---- US10: alertas de rotina de sono ----
+export type SleepAlertConfig = {
+  enabled: boolean;
+  time: string; // HH:MM — horário desejado para dormir
+  days: number[]; // dias da semana ativos (0=domingo .. 6=sábado)
+};
+
+// ---- US11: refeições ----
+export type MealCategory = 'cafe' | 'almoco' | 'jantar' | 'lanche';
+export type MealEntry = {
+  id: string;
+  date: string; // YYYY-MM-DD
+  category: MealCategory;
+  description: string;
+  time: string; // HH:MM (automático no registro, editável)
+  createdAt: string;
+};
+
+// ---- US12: ingestão hídrica ----
+export type WaterDay = {
+  date: string; // YYYY-MM-DD
+  ml: number; // total consumido no dia
+};
+
+// ---- US14: plano VitaU+ / chat ----
+export type Plan = 'free' | 'plus';
+export type Appointment = {
+  id: string;
+  proId: string;
+  date: string; // YYYY-MM-DD
+  time: string; // HH:MM
+  createdAt: string;
+};
+export type ChatMessage = {
+  id: string;
+  from: 'student' | 'pro';
+  text: string;
   createdAt: string;
 };
 
@@ -46,6 +87,15 @@ const K = {
   mood: (u: string) => `@vitau/mood/${u}`,
   stress: (u: string) => `@vitau/stress/${u}`,
   sleep: (u: string) => `@vitau/sleep/${u}`,
+  sleepAlert: (u: string) => `@vitau/sleepAlert/${u}`,
+  meals: (u: string) => `@vitau/meals/${u}`,
+  water: (u: string) => `@vitau/water/${u}`,
+  waterGoal: (u: string) => `@vitau/waterGoal/${u}`,
+  mindfulness: (u: string) => `@vitau/mindfulness/${u}`,
+  nutritionFav: (u: string) => `@vitau/nutritionFav/${u}`,
+  plan: (u: string) => `@vitau/plan/${u}`,
+  appointments: (u: string) => `@vitau/appointments/${u}`,
+  chat: (u: string, pro: string) => `@vitau/chat/${u}/${pro}`,
 };
 
 async function getJSON<T>(key: string, fallback: T): Promise<T> {
@@ -165,14 +215,201 @@ export async function saveSleep(
   wake: string,
   durationMin: number,
   quality: number | null,
+  note?: string,
 ): Promise<void> {
   const list = await getJSON<SleepEntry[]>(K.sleep(userId), []);
   const date = todayKey();
-  const entry: SleepEntry = { date, bedtime, wake, durationMin, quality, createdAt: new Date().toISOString() };
+  // US09: apenas uma avaliação por noite — o registro do dia é substituído.
+  const entry: SleepEntry = {
+    date,
+    bedtime,
+    wake,
+    durationMin,
+    quality,
+    note: note?.trim() || undefined,
+    createdAt: new Date().toISOString(),
+  };
   const idx = list.findIndex((s) => s.date === date);
   if (idx >= 0) list[idx] = entry;
   else list.push(entry);
   await setJSON(K.sleep(userId), list);
+}
+
+// ---------- alertas de rotina de sono (US10) ----------
+
+const DEFAULT_SLEEP_ALERT: SleepAlertConfig = {
+  enabled: false,
+  time: '23:00',
+  days: [0, 1, 2, 3, 4, 5, 6],
+};
+
+export async function getSleepAlert(userId: string): Promise<SleepAlertConfig> {
+  return getJSON<SleepAlertConfig>(K.sleepAlert(userId), DEFAULT_SLEEP_ALERT);
+}
+
+export async function saveSleepAlert(userId: string, config: SleepAlertConfig): Promise<void> {
+  await setJSON(K.sleepAlert(userId), config);
+}
+
+// ---------- refeições (US11) ----------
+
+export async function getMeals(userId: string, date?: string): Promise<MealEntry[]> {
+  const list = await getJSON<MealEntry[]>(K.meals(userId), []);
+  const filtered = date ? list.filter((m) => m.date === date) : list;
+  // mais recentes primeiro (por data e horário)
+  return filtered.sort((a, b) =>
+    a.date === b.date ? b.time.localeCompare(a.time) : b.date.localeCompare(a.date),
+  );
+}
+
+export async function addMeal(
+  userId: string,
+  category: MealCategory,
+  description: string,
+  time: string,
+): Promise<void> {
+  const list = await getJSON<MealEntry[]>(K.meals(userId), []);
+  list.push({
+    id: uid(),
+    date: todayKey(),
+    category,
+    description: description.trim(),
+    time,
+    createdAt: new Date().toISOString(),
+  });
+  await setJSON(K.meals(userId), list);
+}
+
+export async function updateMeal(
+  userId: string,
+  id: string,
+  patch: Partial<Pick<MealEntry, 'category' | 'description' | 'time'>>,
+): Promise<void> {
+  const list = await getJSON<MealEntry[]>(K.meals(userId), []);
+  const idx = list.findIndex((m) => m.id === id);
+  if (idx >= 0) {
+    list[idx] = {
+      ...list[idx],
+      ...patch,
+      description: patch.description?.trim() ?? list[idx].description,
+    };
+    await setJSON(K.meals(userId), list);
+  }
+}
+
+export async function deleteMeal(userId: string, id: string): Promise<void> {
+  const list = await getJSON<MealEntry[]>(K.meals(userId), []);
+  await setJSON(K.meals(userId), list.filter((m) => m.id !== id));
+}
+
+// ---------- ingestão hídrica (US12) ----------
+
+export const DEFAULT_WATER_GOAL = 2000; // ml
+export const WATER_CUP_ML = 250;
+
+export async function getWaterGoal(userId: string): Promise<number> {
+  return getJSON<number>(K.waterGoal(userId), DEFAULT_WATER_GOAL);
+}
+
+export async function setWaterGoal(userId: string, ml: number): Promise<void> {
+  await setJSON(K.waterGoal(userId), Math.max(WATER_CUP_ML, Math.round(ml)));
+}
+
+export async function getWaterHistory(userId: string): Promise<WaterDay[]> {
+  const list = await getJSON<WaterDay[]>(K.water(userId), []);
+  return list.sort((a, b) => b.date.localeCompare(a.date));
+}
+
+/** Total de hoje — o reinício diário é implícito: cada dia tem sua própria entrada. */
+export async function getWaterToday(userId: string): Promise<number> {
+  const list = await getJSON<WaterDay[]>(K.water(userId), []);
+  return list.find((w) => w.date === todayKey())?.ml ?? 0;
+}
+
+/** Soma (ou subtrai) ml ao total de hoje; nunca abaixo de zero. */
+export async function addWater(userId: string, ml: number): Promise<number> {
+  const list = await getJSON<WaterDay[]>(K.water(userId), []);
+  const date = todayKey();
+  const idx = list.findIndex((w) => w.date === date);
+  if (idx >= 0) {
+    list[idx] = { date, ml: Math.max(0, list[idx].ml + ml) };
+  } else {
+    list.push({ date, ml: Math.max(0, ml) });
+  }
+  await setJSON(K.water(userId), list);
+  return list.find((w) => w.date === date)?.ml ?? 0;
+}
+
+// ---------- mindfulness — exercícios concluídos (US07) ----------
+
+export async function getMindfulnessDone(userId: string): Promise<string[]> {
+  return getJSON<string[]>(K.mindfulness(userId), []);
+}
+
+export async function toggleMindfulnessDone(userId: string, id: string): Promise<string[]> {
+  const list = await getJSON<string[]>(K.mindfulness(userId), []);
+  const next = list.includes(id) ? list.filter((x) => x !== id) : [...list, id];
+  await setJSON(K.mindfulness(userId), next);
+  return next;
+}
+
+// ---------- dicas nutricionais — favoritas (US13) ----------
+
+export async function getNutritionFavorites(userId: string): Promise<string[]> {
+  return getJSON<string[]>(K.nutritionFav(userId), []);
+}
+
+export async function toggleNutritionFavorite(userId: string, id: string): Promise<string[]> {
+  const list = await getJSON<string[]>(K.nutritionFav(userId), []);
+  const next = list.includes(id) ? list.filter((x) => x !== id) : [...list, id];
+  await setJSON(K.nutritionFav(userId), next);
+  return next;
+}
+
+// ---------- plano VitaU+ / chat com psicólogo (US14) ----------
+
+export async function getPlan(userId: string): Promise<Plan> {
+  return getJSON<Plan>(K.plan(userId), 'free');
+}
+
+export async function setPlan(userId: string, plan: Plan): Promise<void> {
+  await setJSON(K.plan(userId), plan);
+}
+
+export async function getAppointments(userId: string): Promise<Appointment[]> {
+  const list = await getJSON<Appointment[]>(K.appointments(userId), []);
+  return list.sort((a, b) =>
+    a.date === b.date ? a.time.localeCompare(b.time) : a.date.localeCompare(b.date),
+  );
+}
+
+export async function addAppointment(
+  userId: string,
+  proId: string,
+  date: string,
+  time: string,
+): Promise<Appointment> {
+  const list = await getJSON<Appointment[]>(K.appointments(userId), []);
+  const appt: Appointment = { id: uid(), proId, date, time, createdAt: new Date().toISOString() };
+  list.push(appt);
+  await setJSON(K.appointments(userId), list);
+  return appt;
+}
+
+export async function getChat(userId: string, proId: string): Promise<ChatMessage[]> {
+  return getJSON<ChatMessage[]>(K.chat(userId, proId), []);
+}
+
+export async function addChatMessage(
+  userId: string,
+  proId: string,
+  from: 'student' | 'pro',
+  text: string,
+): Promise<ChatMessage[]> {
+  const list = await getJSON<ChatMessage[]>(K.chat(userId, proId), []);
+  list.push({ id: uid(), from, text: text.trim(), createdAt: new Date().toISOString() });
+  await setJSON(K.chat(userId, proId), list);
+  return list;
 }
 
 // ---------- dados de demonstração ----------
